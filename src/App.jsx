@@ -56,7 +56,7 @@ export default function TransportApp() {
     handleSaveRule, handleDeleteRule,
     handleSaveManualScore, handleDeleteManualScore,
     handleSaveRole
-  } = useTransportData(appUser);
+  } = useTransportData(user || appUser);
 
   // --- Auth Initialization ---
   useEffect(() => {
