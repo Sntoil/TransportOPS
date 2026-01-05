@@ -1,0 +1,11 @@
+import React from 'react';
+import { ClipboardList } from 'lucide-react';
+
+export default function ScoreLogView({ scoreLogs }) {
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><ClipboardList className="text-blue-600" /> ประวัติการหัก/เพิ่ม คะแนน (Score Log)</h2>
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden"><div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200"><thead className="bg-gray-50"><tr><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">วัน-เวลา</th><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">ชื่อพนักงาน</th><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">รายการ</th><th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase">คะแนน</th><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">ประเภท</th></tr></thead><tbody className="bg-white divide-y divide-gray-200">{scoreLogs.length === 0 ? (<tr><td colSpan="5" className="px-6 py-8 text-center text-gray-400">ยังไม่มีประวัติคะแนนในเดือนนี้</td></tr>) : (scoreLogs.sort((a,b) => new Date(b.date) - new Date(a.date)).map((log, idx) => (<tr key={idx} className="hover:bg-gray-50 transition"><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{log.date}</td><td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-700">{log.memberName}</td><td className="px-6 py-4 text-sm text-gray-600">{log.topic}</td><td className="px-6 py-4 text-center"><span className={`font-bold ${log.score < 0 ? 'text-red-500' : 'text-green-500'}`}>{log.score > 0 ? '+' : ''}{log.score}</span></td><td className="px-6 py-4 whitespace-nowrap text-xs"><span className={`px-2 py-1 rounded border ${log.type === 'Auto' ? 'bg-gray-100 text-gray-500 border-gray-200' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>{log.type}</span></td></tr>)))}</tbody></table></div></div>
+    </div>
+  );
+}
