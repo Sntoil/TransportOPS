@@ -17,11 +17,12 @@ import { Menu } from 'lucide-react';
 
 // AI Helper
 import { GoogleGenerativeAI } from "@google/generative-ai";
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_FIREBASE_API_KEY); // ใช้ API Key ตัวเดียวกับ Firebase (ถ้าเปิดบริการไว้) หรือใส่ Key แยก
+// เช็คว่ามี Key ไหม ถ้าไม่มีให้ใส่สตริงว่างกัน Error
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_FIREBASE_API_KEY || "dummy_key");
 
 export default function TransportApp() {
   const [user, setUser] = useState(null);
-  const [appUser, setAppUser] = useState(null); // สำหรับเครื่อง 2 ที่ไม่มี Firebase Auth
+  const [appUser, setAppUser] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [aiLoading, setAiLoading] = useState(false);
@@ -31,7 +32,7 @@ export default function TransportApp() {
     members, tasks, logs, actionLogs, rules, manualScores, roles,
     handleTaskToggle, handleUpdateTaskStatus, handleAddTask, handleEditTask, handleDeleteTask,
     handleAddMember, handleEditMember, handleDeleteMember,
-    handleAddLog, handleResolveLog, handleDeleteLog, // 👈 ✅ รับมาจาก Hook
+    handleAddLog, handleResolveLog, handleDeleteLog,
     handleSaveRule, handleDeleteRule,
     handleSaveManualScore, handleDeleteManualScore,
     handleSaveRole
@@ -40,9 +41,6 @@ export default function TransportApp() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if(!currentUser) {
-         // Auto login mock for demo/machine 2 if needed or just wait
-      }
     });
     return () => unsubscribe();
   }, []);
@@ -56,13 +54,17 @@ export default function TransportApp() {
 
   // Wrapper เพื่อส่ง user เข้าไปใน function ของ hook อัตโนมัติ
   const withUser = (fn) => (...args) => {
-      if (fn) return fn(...args, user || appUser); // 👈 มี return เพื่อให้ใช้ await ได้
+      if (fn) return fn(...args, user || appUser);
   };
 
-  const currentUserRole = roles[(user || appUser)?.email] || 'staff'; 
+  const currentUserRole = roles?.[(user || appUser)?.email] || 'staff'; 
 
   // AI Function
   const askAiSolution = async (logItem) => {
+      if (!import.meta.env.VITE_FIREBASE_API_KEY) {
+          alert("ไม่พบ API Key ของ Google AI");
+          return;
+      }
       setAiLoading(true);
       try {
         const model = genAI.getGenerativeModel({ model: "gemini-pro"});
@@ -73,7 +75,7 @@ export default function TransportApp() {
         alert(`🤖 AI Suggestion:\n${text}`);
       } catch (error) {
           console.error(error);
-          alert("AI Error or API Key missing");
+          alert("AI Error: " + error.message);
       } finally {
           setAiLoading(false);
       }
@@ -108,17 +110,27 @@ export default function TransportApp() {
 
         <div className="flex-1 overflow-auto p-4 lg:p-8">
            <div className="max-w-7xl mx-auto">
-              {activeTab === 'dashboard' && <DashboardView members={members} tasks={tasks} logs={logs} />}
-              {activeTab === 'team' && <TeamView members={members} onAdd={withUser(handleAddMember)} onEdit={withUser(handleEditMember)} onDelete={withUser(handleDeleteMember)} currentUserRole={currentUserRole} />}
-              {activeTab === 'dept' && <DepartmentView members={members} tasks={tasks} onTaskToggle={withUser(handleTaskToggle)} />}
-              {activeTab === 'scores' && <ScoreLogView members={members} manualScores={manualScores} rules={rules} tasks={tasks} onAddScore={withUser(handleSaveManualScore)} onDeleteScore={withUser(handleDeleteManualScore)} currentUserRole={currentUserRole} />}
+              {/* ✅ จุดที่แก้: ใส่ || [] ให้ทุกตัวที่ส่งไป Dashboard เพื่อป้องกัน Error หน้าขาว */}
+              {activeTab === 'dashboard' && 
+                <DashboardView 
+                    members={members || []} 
+                    tasks={tasks || []} 
+                    logs={logs || []} 
+                />
+              }
+
+              {activeTab === 'team' && <TeamView members={members || []} onAdd={withUser(handleAddMember)} onEdit={withUser(handleEditMember)} onDelete={withUser(handleDeleteMember)} currentUserRole={currentUserRole} />}
+              
+              {activeTab === 'dept' && <DepartmentView members={members || []} tasks={tasks || []} onTaskToggle={withUser(handleTaskToggle)} />}
+              
+              {activeTab === 'scores' && <ScoreLogView members={members || []} manualScores={manualScores || []} rules={rules || []} tasks={tasks || []} onAddScore={withUser(handleSaveManualScore)} onDeleteScore={withUser(handleDeleteManualScore)} currentUserRole={currentUserRole} />}
               
               {activeTab === 'problems' && 
                 <ProblemLogView 
-                    logs={logs} 
+                    logs={logs || []} 
                     onAddLog={withUser(handleAddLog)} 
                     onResolveLog={withUser(handleResolveLog)}
-                    onDeleteLog={withUser(handleDeleteLog)} // 👈 ✅ ส่ง prop นี้ไป
+                    onDeleteLog={withUser(handleDeleteLog)}
                     currentDate={new Date().toLocaleDateString('th-TH')}
                     askAiSolution={askAiSolution}
                     showToast={showToast}
@@ -128,9 +140,11 @@ export default function TransportApp() {
                 />
               }
 
-              {activeTab === 'assign' && <AssignMenuView members={members} tasks={tasks} onAddTask={withUser(handleAddTask)} onEditTask={withUser(handleEditTask)} onDeleteTask={withUser(handleDeleteTask)} onUpdateStatus={withUser(handleUpdateTaskStatus)} currentUserRole={currentUserRole} />}
-              {activeTab === 'action_logs' && <ActionLogView logs={actionLogs} />}
-              {activeTab === 'rules' && <RulesView rules={rules} onSave={withUser(handleSaveRule)} onDelete={withUser(handleDeleteRule)} currentUserRole={currentUserRole} roles={roles} onSaveRole={withUser(handleSaveRole)} />}
+              {activeTab === 'assign' && <AssignMenuView members={members || []} tasks={tasks || []} onAddTask={withUser(handleAddTask)} onEditTask={withUser(handleEditTask)} onDeleteTask={withUser(handleDeleteTask)} onUpdateStatus={withUser(handleUpdateTaskStatus)} currentUserRole={currentUserRole} />}
+              
+              {activeTab === 'action_logs' && <ActionLogView logs={actionLogs || []} />}
+              
+              {activeTab === 'rules' && <RulesView rules={rules || []} onSave={withUser(handleSaveRule)} onDelete={withUser(handleDeleteRule)} currentUserRole={currentUserRole} roles={roles || {}} onSaveRole={withUser(handleSaveRole)} />}
            </div>
         </div>
       </div>
