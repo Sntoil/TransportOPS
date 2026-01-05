@@ -137,15 +137,13 @@ export default function ProblemLogView({ logs, onAddLog, onResolveLog, onDeleteL
                         )}
 
                         {/* ✅ ปุ่มลบ (Trash Icon) */}
-                        {['dgm', 'dm'].includes(currentUserRole) && (
-                            <button 
-                                onClick={() => handleDeleteClick(log.docId || log.id)} 
-                                className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition"
-                                title="ลบรายการ"
-                            >
-                                <Trash2 size={14} />
-                            </button>
-                        )}
+                        <button 
+                            onClick={() => handleDeleteClick(log.docId || log.id)} 
+                            className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition"
+                            title="ลบรายการ"
+                        >
+                            <Trash2 size={14} />
+                        </button>
                     </div>
                   </div>
                 </div>
