@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "tsops-webapp-v1"
-  }
+    "default": "tsops-webapp-v1",
+    "Pcgts": "tsops-webapp-v1"
+  },
+  "targets": {},
+  "etags": {}
 }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { AlertTriangle, CheckCircle2, Sparkles, Loader2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Sparkles, Loader2, Trash2 } from 'lucide-react'; // ✅ เพิ่ม Trash2
 
-export default function ProblemLogView({ logs, onAddLog, onResolveLog, currentDate, askAiSolution, showToast, userEmail, currentUserRole, aiLoading }) {
+export default function ProblemLogView({ logs, onAddLog, onResolveLog, onDeleteLog, currentDate, askAiSolution, showToast, userEmail, currentUserRole, aiLoading }) {
   const [topic, setTopic] = useState("");
   const [detail, setDetail] = useState("");
   const [dept, setDept] = useState("Inbound");
@@ -9,7 +9,7 @@ export default function ProblemLogView({ logs, onAddLog, onResolveLog, currentDa
   const [isResolveModalOpen, setIsResolveModalOpen] = useState(false);
   const [resolveNote, setResolveNote] = useState("");
   const [selectedLogId, setSelectedLogId] = useState(null);
-  const [isResolving, setIsResolving] = useState(false); // ✅ เพิ่มสถานะ Loading
+  const [isResolving, setIsResolving] = useState(false); 
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -29,14 +29,11 @@ export default function ProblemLogView({ logs, onAddLog, onResolveLog, currentDa
       setIsResolveModalOpen(true);
   };
 
-  // ✅ ปรับเป็น Async เพื่อรอผลการบันทึก
   const handleResolveSubmit = async () => {
       if(selectedLogId) {
           try {
               setIsResolving(true);
-              // รอให้บันทึกลง Database เสร็จก่อน (ต้องแก้ App.jsx ให้ withUser มี return ด้วย)
               await onResolveLog(selectedLogId, resolveNote); 
-              
               setIsResolveModalOpen(false);
               setResolveNote("");
               setSelectedLogId(null);
@@ -50,12 +47,26 @@ export default function ProblemLogView({ logs, onAddLog, onResolveLog, currentDa
       }
   };
 
+  // ✅ ฟังก์ชันสำหรับกดลบ
+  const handleDeleteClick = async (logId) => {
+    if (window.confirm("⚠️ คุณต้องการลบรายการปัญหานี้ใช่หรือไม่?\n(การกระทำนี้ไม่สามารถย้อนกลับได้)")) {
+        try {
+            await onDeleteLog(logId);
+            showToast("ลบรายการเรียบร้อยแล้ว");
+        } catch (error) {
+            console.error(error);
+            showToast("เกิดข้อผิดพลาดในการลบ");
+        }
+    }
+  };
+
   const filteredLogs = logs.filter(l => l.status === activeTab);
 
   return (
     <div className="space-y-6 animate-fade-in">
       <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><AlertTriangle className="text-red-500" /> Problem Log</h2>
 
+      {/* Modal ปิดงาน */}
       {isResolveModalOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black bg-opacity-50 p-4 backdrop-blur-sm">
            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 animate-fade-in">
@@ -63,7 +74,6 @@ export default function ProblemLogView({ logs, onAddLog, onResolveLog, currentDa
               <div className="space-y-4">
                  <div><label className="block text-xs font-bold text-gray-500 mb-1">หมายเหตุ / สรุปการแก้ไข</label><textarea className="w-full border rounded px-3 py-2 h-24" value={resolveNote} onChange={e => setResolveNote(e.target.value)} placeholder="ระบุรายละเอียดการแก้ไข..."></textarea></div>
                  
-                 {/* ✅ ปรับปุ่มให้แสดง Loading และ Disabled ขณะบันทึก */}
                  <div className="flex gap-2 justify-end pt-4">
                     <button onClick={() => setIsResolveModalOpen(false)} disabled={isResolving} className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded">ยกเลิก</button>
                     <button onClick={handleResolveSubmit} disabled={isResolving} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2">
@@ -115,13 +125,26 @@ export default function ProblemLogView({ logs, onAddLog, onResolveLog, currentDa
                       )}
                       <div className="flex gap-2 mt-2"><span className="text-[10px] uppercase font-bold tracking-wider bg-gray-100 px-2 py-0.5 rounded text-gray-600">{log.dept}</span><span className="text-[10px] text-gray-400 px-2 py-0.5">{log.date}</span></div>
                     </div>
-                    <div>
+                    
+                    <div className="flex flex-col items-end gap-2">
+                        {/* ปุ่มปิดงาน */}
                         {log.status === 'pending' ? (
                             ['dgm', 'dm'].includes(currentUserRole) && (
                                 <button onClick={() => handleOpenResolve(log.docId || log.id)} className="px-3 py-1 bg-yellow-100 text-yellow-700 text-xs rounded hover:bg-yellow-200 transition font-bold">ปิดงาน</button>
                             )
                         ) : (
                             <span className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide whitespace-nowrap bg-green-100 text-green-700">SOLVED</span>
+                        )}
+
+                        {/* ✅ ปุ่มลบ (Trash Icon) */}
+                        {['dgm', 'dm'].includes(currentUserRole) && (
+                            <button 
+                                onClick={() => handleDeleteClick(log.docId || log.id)} 
+                                className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition"
+                                title="ลบรายการ"
+                            >
+                                <Trash2 size={14} />
+                            </button>
                         )}
                     </div>
                   </div>
