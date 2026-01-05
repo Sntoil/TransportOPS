@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertTriangle, CheckCircle2, Sparkles } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Sparkles, Loader2 } from 'lucide-react';
 
 export default function ProblemLogView({ logs, onAddLog, onResolveLog, currentDate, askAiSolution, showToast, userEmail, currentUserRole, aiLoading }) {
   const [topic, setTopic] = useState("");
@@ -9,6 +9,7 @@ export default function ProblemLogView({ logs, onAddLog, onResolveLog, currentDa
   const [isResolveModalOpen, setIsResolveModalOpen] = useState(false);
   const [resolveNote, setResolveNote] = useState("");
   const [selectedLogId, setSelectedLogId] = useState(null);
+  const [isResolving, setIsResolving] = useState(false); // ✅ เพิ่มสถานะ Loading
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -28,13 +29,24 @@ export default function ProblemLogView({ logs, onAddLog, onResolveLog, currentDa
       setIsResolveModalOpen(true);
   };
 
-  const handleResolveSubmit = () => {
+  // ✅ ปรับเป็น Async เพื่อรอผลการบันทึก
+  const handleResolveSubmit = async () => {
       if(selectedLogId) {
-          onResolveLog(selectedLogId, resolveNote);
-          setIsResolveModalOpen(false);
-          setResolveNote("");
-          setSelectedLogId(null);
-          showToast("ปิดงานเรียบร้อยแล้ว");
+          try {
+              setIsResolving(true);
+              // รอให้บันทึกลง Database เสร็จก่อน (ต้องแก้ App.jsx ให้ withUser มี return ด้วย)
+              await onResolveLog(selectedLogId, resolveNote); 
+              
+              setIsResolveModalOpen(false);
+              setResolveNote("");
+              setSelectedLogId(null);
+              showToast("ปิดงานเรียบร้อยแล้ว");
+          } catch (error) {
+              console.error(error);
+              showToast("เกิดข้อผิดพลาดในการปิดงาน");
+          } finally {
+              setIsResolving(false);
+          }
       }
   };
 
@@ -50,7 +62,15 @@ export default function ProblemLogView({ logs, onAddLog, onResolveLog, currentDa
               <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><CheckCircle2 className="text-green-600"/> บันทึกการปิดงาน</h3>
               <div className="space-y-4">
                  <div><label className="block text-xs font-bold text-gray-500 mb-1">หมายเหตุ / สรุปการแก้ไข</label><textarea className="w-full border rounded px-3 py-2 h-24" value={resolveNote} onChange={e => setResolveNote(e.target.value)} placeholder="ระบุรายละเอียดการแก้ไข..."></textarea></div>
-                 <div className="flex gap-2 justify-end pt-4"><button onClick={() => setIsResolveModalOpen(false)} className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded">ยกเลิก</button><button onClick={handleResolveSubmit} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">ยืนยันปิดงาน</button></div>
+                 
+                 {/* ✅ ปรับปุ่มให้แสดง Loading และ Disabled ขณะบันทึก */}
+                 <div className="flex gap-2 justify-end pt-4">
+                    <button onClick={() => setIsResolveModalOpen(false)} disabled={isResolving} className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded">ยกเลิก</button>
+                    <button onClick={handleResolveSubmit} disabled={isResolving} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2">
+                        {isResolving && <Loader2 size={16} className="animate-spin"/>} 
+                        ยืนยันปิดงาน
+                    </button>
+                 </div>
               </div>
            </div>
         </div>
