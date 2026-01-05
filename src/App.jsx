@@ -17,8 +17,16 @@ import { Menu } from 'lucide-react';
 
 // AI Helper
 import { GoogleGenerativeAI } from "@google/generative-ai";
-// เช็คว่ามี Key ไหม ถ้าไม่มีให้ใส่สตริงว่างกัน Error
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_FIREBASE_API_KEY || "dummy_key");
+
+// ใช้ try-catch ป้องกัน Error กรณีไม่มี Key หรือ Key ผิด
+let genAI = null;
+try {
+  if (import.meta.env.VITE_FIREBASE_API_KEY) {
+    genAI = new GoogleGenerativeAI(import.meta.env.VITE_FIREBASE_API_KEY);
+  }
+} catch (e) {
+  console.warn("Google AI init failed:", e);
+}
 
 export default function TransportApp() {
   const [user, setUser] = useState(null);
@@ -52,17 +60,18 @@ export default function TransportApp() {
 
   const showToast = (msg) => toast.success(msg);
 
-  // Wrapper เพื่อส่ง user เข้าไปใน function ของ hook อัตโนมัติ
   const withUser = (fn) => (...args) => {
       if (fn) return fn(...args, user || appUser);
   };
 
-  const currentUserRole = roles?.[(user || appUser)?.email] || 'staff'; 
+  // Safety Check: ถ้า roles ยังไม่มา ให้เป็น object ว่าง
+  const safeRoles = roles || {};
+  const currentUserRole = safeRoles[(user || appUser)?.email] || 'staff'; 
 
   // AI Function
   const askAiSolution = async (logItem) => {
-      if (!import.meta.env.VITE_FIREBASE_API_KEY) {
-          alert("ไม่พบ API Key ของ Google AI");
+      if (!genAI) {
+          alert("ระบบ AI ไม่พร้อมใช้งาน (อาจไม่มี API Key)");
           return;
       }
       setAiLoading(true);
@@ -75,7 +84,7 @@ export default function TransportApp() {
         alert(`🤖 AI Suggestion:\n${text}`);
       } catch (error) {
           console.error(error);
-          alert("AI Error: " + error.message);
+          alert("เกิดข้อผิดพลาดในการเรียก AI");
       } finally {
           setAiLoading(false);
       }
@@ -85,11 +94,19 @@ export default function TransportApp() {
     return <LoginView onLogin={(u) => setAppUser(u)} />;
   }
 
+  // ✅ PREPARE SAFE DATA: แปลง undefined ให้เป็น [] ก่อนส่งไปหน้าอื่น
+  const safeMembers = members || [];
+  const safeTasks = tasks || [];
+  const safeLogs = logs || [];
+  const safeManualScores = manualScores || [];
+  const safeRules = rules || [];
+  const safeActionLogs = actionLogs || [];
+
   return (
     <div className="flex h-screen bg-gray-100 font-sans text-gray-900 overflow-hidden">
       <Toaster position="top-right" />
       
-      {/* Sidebar (Desktop) */}
+      {/* Sidebar */}
       <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white transform transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
          <Sidebar 
             activeTab={activeTab} 
@@ -102,7 +119,6 @@ export default function TransportApp() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Header (Mobile Toggle) */}
         <div className="lg:hidden bg-white p-4 shadow-sm flex items-center justify-between">
            <span className="font-bold text-lg text-slate-800">TransportOps</span>
            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-gray-600"><Menu/></button>
@@ -110,24 +126,23 @@ export default function TransportApp() {
 
         <div className="flex-1 overflow-auto p-4 lg:p-8">
            <div className="max-w-7xl mx-auto">
-              {/* ✅ จุดที่แก้: ใส่ || [] ให้ทุกตัวที่ส่งไป Dashboard เพื่อป้องกัน Error หน้าขาว */}
               {activeTab === 'dashboard' && 
                 <DashboardView 
-                    members={members || []} 
-                    tasks={tasks || []} 
-                    logs={logs || []} 
+                    members={safeMembers} 
+                    tasks={safeTasks} 
+                    logs={safeLogs} 
                 />
               }
 
-              {activeTab === 'team' && <TeamView members={members || []} onAdd={withUser(handleAddMember)} onEdit={withUser(handleEditMember)} onDelete={withUser(handleDeleteMember)} currentUserRole={currentUserRole} />}
+              {activeTab === 'team' && <TeamView members={safeMembers} onAdd={withUser(handleAddMember)} onEdit={withUser(handleEditMember)} onDelete={withUser(handleDeleteMember)} currentUserRole={currentUserRole} />}
               
-              {activeTab === 'dept' && <DepartmentView members={members || []} tasks={tasks || []} onTaskToggle={withUser(handleTaskToggle)} />}
+              {activeTab === 'dept' && <DepartmentView members={safeMembers} tasks={safeTasks} onTaskToggle={withUser(handleTaskToggle)} />}
               
-              {activeTab === 'scores' && <ScoreLogView members={members || []} manualScores={manualScores || []} rules={rules || []} tasks={tasks || []} onAddScore={withUser(handleSaveManualScore)} onDeleteScore={withUser(handleDeleteManualScore)} currentUserRole={currentUserRole} />}
+              {activeTab === 'scores' && <ScoreLogView members={safeMembers} manualScores={safeManualScores} rules={safeRules} tasks={safeTasks} onAddScore={withUser(handleSaveManualScore)} onDeleteScore={withUser(handleDeleteManualScore)} currentUserRole={currentUserRole} />}
               
               {activeTab === 'problems' && 
                 <ProblemLogView 
-                    logs={logs || []} 
+                    logs={safeLogs} 
                     onAddLog={withUser(handleAddLog)} 
                     onResolveLog={withUser(handleResolveLog)}
                     onDeleteLog={withUser(handleDeleteLog)}
@@ -140,16 +155,15 @@ export default function TransportApp() {
                 />
               }
 
-              {activeTab === 'assign' && <AssignMenuView members={members || []} tasks={tasks || []} onAddTask={withUser(handleAddTask)} onEditTask={withUser(handleEditTask)} onDeleteTask={withUser(handleDeleteTask)} onUpdateStatus={withUser(handleUpdateTaskStatus)} currentUserRole={currentUserRole} />}
+              {activeTab === 'assign' && <AssignMenuView members={safeMembers} tasks={safeTasks} onAddTask={withUser(handleAddTask)} onEditTask={withUser(handleEditTask)} onDeleteTask={withUser(handleDeleteTask)} onUpdateStatus={withUser(handleUpdateTaskStatus)} currentUserRole={currentUserRole} />}
               
-              {activeTab === 'action_logs' && <ActionLogView logs={actionLogs || []} />}
+              {activeTab === 'action_logs' && <ActionLogView logs={safeActionLogs} />}
               
-              {activeTab === 'rules' && <RulesView rules={rules || []} onSave={withUser(handleSaveRule)} onDelete={withUser(handleDeleteRule)} currentUserRole={currentUserRole} roles={roles || {}} onSaveRole={withUser(handleSaveRole)} />}
+              {activeTab === 'rules' && <RulesView rules={safeRules} onSave={withUser(handleSaveRule)} onDelete={withUser(handleDeleteRule)} currentUserRole={currentUserRole} roles={safeRoles} onSaveRole={withUser(handleSaveRole)} />}
            </div>
         </div>
       </div>
       
-      {/* Overlay for mobile sidebar */}
       {isSidebarOpen && <div className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
     </div>
   );
