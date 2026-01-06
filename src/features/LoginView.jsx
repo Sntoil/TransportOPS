@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
 import { Lock, Mail, Loader2, AlertCircle } from 'lucide-react';
 
-export default function LoginView() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+export default function LoginView({ onLogin }) {
+  const adminEmail = useMemo(() => (import.meta.env.VITE_ADMIN_EMAIL || 'admin@tsops.com').toLowerCase(), []);
+  const adminPassword = useMemo(() => import.meta.env.VITE_ADMIN_PASSWORD || 'pass1234', []);
+
+  const [email, setEmail] = useState(adminEmail);
+  const [password, setPassword] = useState(adminPassword);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -15,6 +18,12 @@ export default function LoginView() {
     setError('');
 
     try {
+      // ✅ Local Admin Shortcut (สำหรับ Demo/Deploy)
+      if (email.trim().toLowerCase() === adminEmail && password === adminPassword) {
+        onLogin?.({ email: adminEmail, displayName: 'Admin', providerId: 'local-admin' });
+        return;
+      }
+
       // ✅ ของจริง: ยิงไปตรวจสอบกับ Firebase Auth
       await signInWithEmailAndPassword(auth, email, password);
       // ถ้าผ่าน App.jsx จะจับได้เองจาก onAuthStateChanged
