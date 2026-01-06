@@ -1,19 +1,11 @@
 import { useState, useEffect } from 'react';
 import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, // ✅ เพิ่ม deleteDoc
-  doc, 
-  onSnapshot, 
-  query, 
-  orderBy, 
-  where, 
-  serverTimestamp 
+  collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp 
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export default function useTransportData(user) {
+  // ตั้งค่าเริ่มต้นเป็น Array ว่าง [] เสมอ (ห้าม null)
   const [members, setMembers] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -23,69 +15,57 @@ export default function useTransportData(user) {
   const [roles, setRoles] = useState({});
 
   useEffect(() => {
-    // 1. Members
+    // ถ้าไม่มี User (ยังไม่ Login) ไม่ต้องไปดึง Database (ป้องกัน Error Permission)
+    if (!user && !user?.email) return;
+
     const unsubMembers = onSnapshot(collection(db, 'members'), (snapshot) => {
       setMembers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    // 2. Tasks (Real-time)
     const qTasks = query(collection(db, 'tasks'));
     const unsubTasks = onSnapshot(qTasks, (snapshot) => {
-      const loadedTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setTasks(loadedTasks);
+      setTasks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    // 3. Problem Logs
     const qLogs = query(collection(db, 'logs'), orderBy('date', 'desc'));
     const unsubLogs = onSnapshot(qLogs, (snapshot) => {
       setLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    // 4. Action Logs
     const qActionLogs = query(collection(db, 'actionLogs'), orderBy('timestamp', 'desc'));
     const unsubActionLogs = onSnapshot(qActionLogs, (snapshot) => {
       setActionLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    // 5. Rules
     const unsubRules = onSnapshot(collection(db, 'rules'), (snapshot) => {
       setRules(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    // 6. Manual Scores
     const unsubManualScores = onSnapshot(collection(db, 'manualScores'), (snapshot) => {
       setManualScores(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    // 7. Roles
     const unsubRoles = onSnapshot(collection(db, 'roles'), (snapshot) => {
       const rolesData = {};
-      snapshot.docs.forEach(doc => {
-        rolesData[doc.id] = doc.data().role;
-      });
+      snapshot.docs.forEach(doc => { rolesData[doc.id] = doc.data().role; });
       setRoles(rolesData);
     });
 
     return () => {
-      unsubMembers();
-      unsubTasks();
-      unsubLogs();
-      unsubActionLogs();
-      unsubRules();
-      unsubManualScores();
-      unsubRoles();
+      unsubMembers(); unsubTasks(); unsubLogs(); unsubActionLogs();
+      unsubRules(); unsubManualScores(); unsubRoles();
     };
-  }, []);
+  }, [user]);
 
-  // --- Actions ---
+  // --- Action Handlers (ต้องมีครบ!) ---
 
   const addActionLog = async (who, action, detail) => {
-    await addDoc(collection(db, 'actionLogs'), {
-      timestamp: serverTimestamp(),
-      user: who,
-      action,
-      detail
-    });
+    try {
+      await addDoc(collection(db, 'actionLogs'), {
+        timestamp: serverTimestamp(),
+        user: who, action, detail
+      });
+    } catch(e) { console.error("Log Error", e); }
   };
 
   const handleTaskToggle = async (taskId, currentStatus, updatedBy) => {
@@ -135,20 +115,15 @@ export default function useTransportData(user) {
 
   const handleAddLog = async (logData, createdBy) => {
     await addDoc(collection(db, 'logs'), logData);
-    await addActionLog(createdBy?.email || 'Unknown', 'Add Log', `Added problem log: ${logData.topic}`);
+    await addActionLog(createdBy?.email || 'Unknown', 'Add Log', `Added problem: ${logData.topic}`);
   };
 
   const handleResolveLog = async (logId, note, solvedBy) => {
     const logRef = doc(db, 'logs', logId);
-    await updateDoc(logRef, {
-      status: 'solved',
-      resolution: note,
-      solvedBy: solvedBy?.email || 'Unknown'
-    });
+    await updateDoc(logRef, { status: 'solved', resolution: note, solvedBy: solvedBy?.email || 'Unknown' });
     await addActionLog(solvedBy?.email || 'Unknown', 'Resolve Log', `Resolved log: ${logId}`);
   };
 
-  // ✅ ฟังก์ชันใหม่สำหรับลบ Log
   const handleDeleteLog = async (logId, deletedBy) => {
     await deleteDoc(doc(db, 'logs', logId));
     await addActionLog(deletedBy?.email || 'Unknown', 'Delete Log', `Deleted log: ${logId}`);
@@ -156,13 +131,12 @@ export default function useTransportData(user) {
 
   const handleSaveRule = async (ruleData, savedBy) => {
     if (ruleData.id) {
-       const ruleRef = doc(db, 'rules', ruleData.id);
        const { id, ...data } = ruleData;
-       await updateDoc(ruleRef, data);
+       await updateDoc(doc(db, 'rules', id), data);
     } else {
        await addDoc(collection(db, 'rules'), ruleData);
     }
-    await addActionLog(savedBy?.email || 'Unknown', 'Save Rule', `Saved rule: ${ruleData.condition}`);
+    await addActionLog(savedBy?.email || 'Unknown', 'Save Rule', `Saved rule`);
   };
 
   const handleDeleteRule = async (ruleId, deletedBy) => {
@@ -171,32 +145,29 @@ export default function useTransportData(user) {
   };
 
   const handleSaveManualScore = async (scoreData, savedBy) => {
-     await addDoc(collection(db, 'manualScores'), {
-        ...scoreData,
-        timestamp: serverTimestamp()
-     });
-     await addActionLog(savedBy?.email || 'Unknown', 'Add Manual Score', `Score ${scoreData.points} to ${scoreData.memberId}`);
+     await addDoc(collection(db, 'manualScores'), { ...scoreData, timestamp: serverTimestamp() });
+     await addActionLog(savedBy?.email || 'Unknown', 'Add Score', `Score ${scoreData.points}`);
   };
 
   const handleDeleteManualScore = async (scoreId, deletedBy) => {
      await deleteDoc(doc(db, 'manualScores', scoreId));
-     await addActionLog(deletedBy?.email || 'Unknown', 'Delete Manual Score', `Deleted score: ${scoreId}`);
+     await addActionLog(deletedBy?.email || 'Unknown', 'Delete Score', `Deleted score: ${scoreId}`);
   };
   
   const handleSaveRole = async (email, role, savedBy) => {
-     const roleRef = doc(db, 'roles', email); // ใช้ email เป็น ID
-     await updateDoc(roleRef, { role: role }).catch(async () => {
-         // ถ้ายังไม่มีให้ create
-         await import('firebase/firestore').then(({setDoc}) => setDoc(roleRef, { role }));
+     const roleRef = doc(db, 'roles', email);
+     await import('firebase/firestore').then(async ({setDoc, getDoc}) => {
+        await setDoc(roleRef, { role }, { merge: true });
      });
      await addActionLog(savedBy?.email || 'Unknown', 'Update Role', `Set ${email} to ${role}`);
-  }
+  };
 
+  // ✅ สำคัญมาก: ต้อง return ออกไปให้ครบทุกตัว!
   return {
     members, tasks, logs, actionLogs, rules, manualScores, roles,
     handleTaskToggle, handleUpdateTaskStatus, handleAddTask, handleEditTask, handleDeleteTask,
     handleAddMember, handleEditMember, handleDeleteMember,
-    handleAddLog, handleResolveLog, handleDeleteLog, // 👈 ✅ ส่งออกไปใช้งาน
+    handleAddLog, handleResolveLog, handleDeleteLog,
     handleSaveRule, handleDeleteRule,
     handleSaveManualScore, handleDeleteManualScore,
     handleSaveRole

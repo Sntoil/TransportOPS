@@ -14,19 +14,14 @@ import RulesView from './features/RulesView';
 import LoginView from './features/LoginView';
 import { Toaster, toast } from 'react-hot-toast';
 import { Menu } from 'lucide-react';
-
-// AI Helper
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// ใช้ try-catch ป้องกัน Error กรณีไม่มี Key หรือ Key ผิด
 let genAI = null;
 try {
   if (import.meta.env.VITE_FIREBASE_API_KEY) {
     genAI = new GoogleGenerativeAI(import.meta.env.VITE_FIREBASE_API_KEY);
   }
-} catch (e) {
-  console.warn("Google AI init failed:", e);
-}
+} catch (e) { console.warn("AI init failed", e); }
 
 export default function TransportApp() {
   const [user, setUser] = useState(null);
@@ -35,89 +30,50 @@ export default function TransportApp() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [aiLoading, setAiLoading] = useState(false);
 
-  // ดึง Data ทั้งหมดจาก Hook
+  // ดึง Data ทั้งหมด
+  const data = useTransportData(user || appUser);
+  
+  // ✅ Extract แบบ Safe (ถ้า Hook พังหรือยังไม่มา ให้เป็น Object ว่างก่อน)
   const {
-    members, tasks, logs, actionLogs, rules, manualScores, roles,
+    members = [], tasks = [], logs = [], actionLogs = [], rules = [], manualScores = [], roles = {},
     handleTaskToggle, handleUpdateTaskStatus, handleAddTask, handleEditTask, handleDeleteTask,
     handleAddMember, handleEditMember, handleDeleteMember,
     handleAddLog, handleResolveLog, handleDeleteLog,
     handleSaveRule, handleDeleteRule,
     handleSaveManualScore, handleDeleteManualScore,
     handleSaveRole
-  } = useTransportData(user || appUser);
+  } = data || {};
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
+    const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
     return () => unsubscribe();
   }, []);
 
-  const handleLogout = async () => {
-    await signOut(auth);
-    setAppUser(null);
-  };
-
+  const handleLogout = async () => { await signOut(auth); setAppUser(null); };
   const showToast = (msg) => toast.success(msg);
+  const withUser = (fn) => (...args) => { if (fn) return fn(...args, user || appUser); };
+  const currentUserRole = roles?.[(user || appUser)?.email] || 'staff'; 
 
-  const withUser = (fn) => (...args) => {
-      if (fn) return fn(...args, user || appUser);
-  };
-
-  // Safety Check: ถ้า roles ยังไม่มา ให้เป็น object ว่าง
-  const safeRoles = roles || {};
-  const currentUserRole = safeRoles[(user || appUser)?.email] || 'staff'; 
-
-  // AI Function
   const askAiSolution = async (logItem) => {
-      if (!genAI) {
-          alert("ระบบ AI ไม่พร้อมใช้งาน (อาจไม่มี API Key)");
-          return;
-      }
+      if (!genAI) return alert("AI Key missing");
       setAiLoading(true);
       try {
         const model = genAI.getGenerativeModel({ model: "gemini-pro"});
-        const prompt = `ช่วยแนะนำวิธีแก้ปัญหาขนส่งนี้หน่อย: หัวข้อ "${logItem.topic}" รายละเอียด "${logItem.detail}"`;
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
-        alert(`🤖 AI Suggestion:\n${text}`);
-      } catch (error) {
-          console.error(error);
-          alert("เกิดข้อผิดพลาดในการเรียก AI");
-      } finally {
-          setAiLoading(false);
-      }
+        const result = await model.generateContent(`แก้ปัญหานี้ให้หน่อย: ${logItem.topic} - ${logItem.detail}`);
+        alert(`🤖 AI Suggestion:\n${result.response.text()}`);
+      } catch (error) { alert("AI Error"); } finally { setAiLoading(false); }
   };
 
-  if (!user && !appUser) {
-    return <LoginView onLogin={(u) => setAppUser(u)} />;
-  }
-
-  // ✅ PREPARE SAFE DATA: แปลง undefined ให้เป็น [] ก่อนส่งไปหน้าอื่น
-  const safeMembers = members || [];
-  const safeTasks = tasks || [];
-  const safeLogs = logs || [];
-  const safeManualScores = manualScores || [];
-  const safeRules = rules || [];
-  const safeActionLogs = actionLogs || [];
+  if (!user && !appUser) return <LoginView onLogin={(u) => setAppUser(u)} />;
 
   return (
     <div className="flex h-screen bg-gray-100 font-sans text-gray-900 overflow-hidden">
       <Toaster position="top-right" />
       
-      {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white transform transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-         <Sidebar 
-            activeTab={activeTab} 
-            setActiveTab={(t) => { setActiveTab(t); setIsSidebarOpen(false); }} 
-            user={user || appUser} 
-            role={currentUserRole}
-            onLogout={handleLogout}
-         />
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white transform transition-transform duration-300 lg:static lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+         <Sidebar activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsSidebarOpen(false); }} user={user || appUser} role={currentUserRole} onLogout={handleLogout} />
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <div className="lg:hidden bg-white p-4 shadow-sm flex items-center justify-between">
            <span className="font-bold text-lg text-slate-800">TransportOps</span>
@@ -126,44 +82,18 @@ export default function TransportApp() {
 
         <div className="flex-1 overflow-auto p-4 lg:p-8">
            <div className="max-w-7xl mx-auto">
-              {activeTab === 'dashboard' && 
-                <DashboardView 
-                    members={safeMembers} 
-                    tasks={safeTasks} 
-                    logs={safeLogs} 
-                />
-              }
-
-              {activeTab === 'team' && <TeamView members={safeMembers} onAdd={withUser(handleAddMember)} onEdit={withUser(handleEditMember)} onDelete={withUser(handleDeleteMember)} currentUserRole={currentUserRole} />}
-              
-              {activeTab === 'dept' && <DepartmentView members={safeMembers} tasks={safeTasks} onTaskToggle={withUser(handleTaskToggle)} />}
-              
-              {activeTab === 'scores' && <ScoreLogView members={safeMembers} manualScores={safeManualScores} rules={safeRules} tasks={safeTasks} onAddScore={withUser(handleSaveManualScore)} onDeleteScore={withUser(handleDeleteManualScore)} currentUserRole={currentUserRole} />}
-              
-              {activeTab === 'problems' && 
-                <ProblemLogView 
-                    logs={safeLogs} 
-                    onAddLog={withUser(handleAddLog)} 
-                    onResolveLog={withUser(handleResolveLog)}
-                    onDeleteLog={withUser(handleDeleteLog)}
-                    currentDate={new Date().toLocaleDateString('th-TH')}
-                    askAiSolution={askAiSolution}
-                    showToast={showToast}
-                    userEmail={(user || appUser)?.email}
-                    currentUserRole={currentUserRole}
-                    aiLoading={aiLoading}
-                />
-              }
-
-              {activeTab === 'assign' && <AssignMenuView members={safeMembers} tasks={safeTasks} onAddTask={withUser(handleAddTask)} onEditTask={withUser(handleEditTask)} onDeleteTask={withUser(handleDeleteTask)} onUpdateStatus={withUser(handleUpdateTaskStatus)} currentUserRole={currentUserRole} />}
-              
-              {activeTab === 'action_logs' && <ActionLogView logs={safeActionLogs} />}
-              
-              {activeTab === 'rules' && <RulesView rules={safeRules} onSave={withUser(handleSaveRule)} onDelete={withUser(handleDeleteRule)} currentUserRole={currentUserRole} roles={safeRoles} onSaveRole={withUser(handleSaveRole)} />}
+              {/* ✅ ส่งไปแบบใส่เกราะ (|| []) ทุกอัน! */}
+              {activeTab === 'dashboard' && <DashboardView members={members || []} tasks={tasks || []} logs={logs || []} />}
+              {activeTab === 'team' && <TeamView members={members || []} onAdd={withUser(handleAddMember)} onEdit={withUser(handleEditMember)} onDelete={withUser(handleDeleteMember)} currentUserRole={currentUserRole} />}
+              {activeTab === 'dept' && <DepartmentView members={members || []} tasks={tasks || []} onTaskToggle={withUser(handleTaskToggle)} />}
+              {activeTab === 'scores' && <ScoreLogView members={members || []} manualScores={manualScores || []} rules={rules || []} tasks={tasks || []} onAddScore={withUser(handleSaveManualScore)} onDeleteScore={withUser(handleDeleteManualScore)} currentUserRole={currentUserRole} />}
+              {activeTab === 'problems' && <ProblemLogView logs={logs || []} onAddLog={withUser(handleAddLog)} onResolveLog={withUser(handleResolveLog)} onDeleteLog={withUser(handleDeleteLog)} currentDate={new Date().toLocaleDateString('th-TH')} askAiSolution={askAiSolution} showToast={showToast} userEmail={(user || appUser)?.email} currentUserRole={currentUserRole} aiLoading={aiLoading} />}
+              {activeTab === 'assign' && <AssignMenuView members={members || []} tasks={tasks || []} onAddTask={withUser(handleAddTask)} onEditTask={withUser(handleEditTask)} onDeleteTask={withUser(handleDeleteTask)} onUpdateStatus={withUser(handleUpdateTaskStatus)} currentUserRole={currentUserRole} />}
+              {activeTab === 'action_logs' && <ActionLogView logs={actionLogs || []} />}
+              {activeTab === 'rules' && <RulesView rules={rules || []} onSave={withUser(handleSaveRule)} onDelete={withUser(handleDeleteRule)} currentUserRole={currentUserRole} roles={roles || {}} onSaveRole={withUser(handleSaveRole)} />}
            </div>
         </div>
       </div>
-      
       {isSidebarOpen && <div className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
     </div>
   );
