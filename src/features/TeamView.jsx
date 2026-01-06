@@ -1,76 +1,88 @@
 import React, { useState } from 'react';
-import { Users, Edit, Trash2 } from 'lucide-react';
+import { Users, UserPlus, Trash2, Edit2, Save, X, Phone, Mail, MapPin } from 'lucide-react';
 
-export default function TeamView({ members, onAddMember, onEditMember, onDeleteMember, roles }) {
-  const [newMember, setNewMember] = useState({ name: "", role: "", dept: "Inbound", avatar: "", email: "", password: "" });
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingMember, setEditingMember] = useState(null);
+export default function TeamView({ members, onAdd, onEdit, onDelete, currentUserRole }) {
+  // ✅ Safety Guard
+  const safeMembers = members || [];
 
-  const handleAddMemberSubmit = (e) => { e.preventDefault(); onAddMember({ ...newMember, avatar: newMember.avatar || `https://i.pravatar.cc/150?u=${Date.now()}` }); setNewMember({ name: "", role: "", dept: "Inbound", avatar: "", email: "", password: "" }); };
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [formData, setFormData] = useState({ name: '', position: '', dept: 'Inbound', tel: '', email: '' });
+
+  const resetForm = () => { setFormData({ name: '', position: '', dept: 'Inbound', tel: '', email: '' }); setEditingId(null); setIsModalOpen(false); };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (editingId) onEdit(editingId, formData);
+    else onAdd(formData);
+    resetForm();
+  };
+
+  const handleEditClick = (m) => { setFormData(m); setEditingId(m.id); setIsModalOpen(true); };
+  const handleDeleteClick = (id) => { if(confirm('ยืนยันการลบ?')) onDelete(id); };
   
-  const handleEditClick = (member) => {
-      setEditingMember(member);
-      setIsEditModalOpen(true);
-  };
-
-  const handleEditSubmit = (e) => {
-      e.preventDefault();
-      onEditMember(editingMember);
-      setIsEditModalOpen(false);
-  };
+  const canManage = ['dgm', 'dm', 'admin'].includes(currentUserRole);
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><Users className="text-blue-600" /> จัดการทีมงาน</h2>
-      
-      {/* Edit Modal */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black bg-opacity-50 p-4 backdrop-blur-sm">
-           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 animate-fade-in">
-              <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Edit className="text-blue-600"/> แก้ไขข้อมูลพนักงาน</h3>
-              <form onSubmit={handleEditSubmit} className="space-y-4">
-                 <div><label className="block text-xs font-bold text-gray-500 mb-1">ชื่อ-สกุล</label><input required className="w-full border rounded px-3 py-2" value={editingMember.name} onChange={e => setEditingMember({...editingMember, name: e.target.value})} /></div>
-                 <div><label className="block text-xs font-bold text-gray-500 mb-1">อีเมล (สำหรับเข้าสู่ระบบ)</label><input required type="email" className="w-full border rounded px-3 py-2" value={editingMember.email} onChange={e => setEditingMember({...editingMember, email: e.target.value})} /></div>
-                 <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1">ตำแหน่ง</label>
-                    <select required className="w-full border rounded px-3 py-2 bg-white" value={editingMember.role} onChange={e => setEditingMember({...editingMember, role: e.target.value})}>
-                       {roles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
-                    </select>
-                 </div>
-                 <div><label className="block text-xs font-bold text-gray-500 mb-1">แผนก</label><select className="w-full border rounded px-3 py-2 bg-white" value={editingMember.dept} onChange={e => setEditingMember({...editingMember, dept: e.target.value})}><option value="Inbound">Inbound</option><option value="Outbound">Outbound</option><option value="Internal">Internal</option><option value="Manager">Manager</option></select></div>
-                 <div className="flex gap-2 justify-end pt-4"><button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded">ยกเลิก</button><button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">บันทึก</button></div>
-              </form>
-           </div>
-        </div>
-      )}
+       <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Users className="text-blue-600"/> จัดการทีมงาน</h2>
+          {canManage && <button onClick={() => setIsModalOpen(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition shadow-sm"><UserPlus size={18}/> เพิ่มพนักงาน</button>}
+       </div>
 
-      <div className="bg-white p-6 rounded-xl shadow-sm mb-6">
-        <h3 className="font-bold mb-4 text-gray-700">เพิ่มสมาชิกใหม่</h3>
-        <form onSubmit={handleAddMemberSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
-           <div className="w-full"><label className="block text-xs font-semibold text-gray-500 mb-1">ชื่อ-สกุล</label><input required value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="ระบุชื่อ..." /></div>
-           <div className="w-full"><label className="block text-xs font-semibold text-gray-500 mb-1">อีเมล (Login)</label><input required type="email" value={newMember.email} onChange={e => setNewMember({...newMember, email: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="name@company.com" /></div>
-           <div className="w-full"><label className="block text-xs font-semibold text-gray-500 mb-1">รหัสผ่าน</label><input required type="password" value={newMember.password} onChange={e => setNewMember({...newMember, password: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="********" /></div>
-           
-           <div className="w-full">
-              <label className="block text-xs font-semibold text-gray-500 mb-1">ตำแหน่ง</label>
-              <select required className="w-full border rounded-lg px-3 py-2 text-sm bg-white" value={newMember.role} onChange={e => setNewMember({...newMember, role: e.target.value})}>
-                 <option value="">เลือกตำแหน่ง...</option>
-                 {roles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
-              </select>
-           </div>
-           <div className="w-full"><label className="block text-xs font-semibold text-gray-500 mb-1">แผนก</label><select className="w-full border rounded-lg px-3 py-2 text-sm bg-white" value={newMember.dept} onChange={e => setNewMember({...newMember, dept: e.target.value})}><option value="Inbound">Inbound</option><option value="Outbound">Outbound</option><option value="Internal">Internal</option><option value="Manager">Manager</option></select></div>
-           
-           <div className="w-full md:col-span-1 lg:col-span-1"><button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 w-full font-medium text-sm shadow-sm transition h-[38px] mt-6">เพิ่มสมาชิก</button></div>
-        </form>
-      </div>
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50"><tr><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">สมาชิก</th><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">อีเมล</th><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">ตำแหน่ง</th><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">แผนก</th><th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">จัดการ</th></tr></thead>
-            <tbody className="bg-white divide-y divide-gray-200">{members.map((m, idx) => (<tr key={m.docId || m.id || idx} className="hover:bg-gray-50 transition cursor-pointer" onClick={() => handleEditClick(m)}><td className="px-6 py-4 whitespace-nowrap flex items-center gap-3"><img className="h-9 w-9 rounded-full object-cover border" src={m.avatar || `https://i.pravatar.cc/150?u=${m.id}`} alt="" /><div className="text-sm font-medium text-gray-900">{m.name}</div></td><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{m.email}</td><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{m.role}</td><td className="px-6 py-4 whitespace-nowrap"><span className={`px-2.5 py-0.5 inline-flex text-xs leading-4 font-semibold rounded-full ${m.dept === 'Inbound' ? 'bg-green-100 text-green-800' : m.dept === 'Outbound' ? 'bg-orange-100 text-orange-800' : 'bg-purple-100 text-purple-800'}`}>{m.dept}</span></td><td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"><button onClick={(e) => { e.stopPropagation(); onDeleteMember(m.id); }} className="text-gray-400 hover:text-red-600 transition p-1 rounded-full hover:bg-red-50"><Trash2 size={18} /></button></td></tr>))}</tbody>
-          </table>
-        </div>
-      </div>
+       {/* Member Grid */}
+       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {safeMembers.length > 0 ? safeMembers.map((member, idx) => (
+             <div key={member?.id || idx} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col hover:shadow-md transition">
+                <div className="flex justify-between items-start mb-4">
+                   <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg">
+                         {member?.name ? member.name.charAt(0).toUpperCase() : '?'}
+                      </div>
+                      <div>
+                         <h3 className="font-bold text-slate-800">{member?.name}</h3>
+                         <p className="text-xs text-slate-500">{member?.position}</p>
+                      </div>
+                   </div>
+                   <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded uppercase">{member?.dept}</span>
+                </div>
+                
+                <div className="space-y-2 text-sm text-gray-600 flex-1">
+                   {member?.tel && <div className="flex items-center gap-2"><Phone size={14} className="text-gray-400"/> {member.tel}</div>}
+                   {member?.email && <div className="flex items-center gap-2"><Mail size={14} className="text-gray-400"/> {member.email}</div>}
+                </div>
+
+                {canManage && (
+                   <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-50">
+                      <button onClick={() => handleEditClick(member)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full"><Edit2 size={16}/></button>
+                      <button onClick={() => handleDeleteClick(member.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full"><Trash2 size={16}/></button>
+                   </div>
+                )}
+             </div>
+          )) : <div className="col-span-full text-center py-10 text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">ยังไม่มีข้อมูลพนักงาน</div>}
+       </div>
+
+       {/* Modal Form */}
+       {isModalOpen && (
+         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl animate-fade-in">
+               <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-bold text-slate-800">{editingId ? 'แก้ไขข้อมูล' : 'เพิ่มพนักงานใหม่'}</h3>
+                  <button onClick={resetForm}><X className="text-gray-400 hover:text-gray-600"/></button>
+               </div>
+               <form onSubmit={handleSubmit} className="space-y-4">
+                  <input required placeholder="ชื่อ-นามสกุล" className="w-full border rounded-lg px-3 py-2" value={formData.name} onChange={e=>setFormData({...formData, name:e.target.value})} />
+                  <input required placeholder="ตำแหน่ง" className="w-full border rounded-lg px-3 py-2" value={formData.position} onChange={e=>setFormData({...formData, position:e.target.value})} />
+                  <select className="w-full border rounded-lg px-3 py-2" value={formData.dept} onChange={e=>setFormData({...formData, dept:e.target.value})}>
+                     <option value="Inbound">Inbound</option><option value="Outbound">Outbound</option><option value="Internal">Internal</option>
+                  </select>
+                  <input placeholder="เบอร์โทร" className="w-full border rounded-lg px-3 py-2" value={formData.tel} onChange={e=>setFormData({...formData, tel:e.target.value})} />
+                  <input placeholder="อีเมล" className="w-full border rounded-lg px-3 py-2" value={formData.email} onChange={e=>setFormData({...formData, email:e.target.value})} />
+                  <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 font-bold shadow-lg shadow-blue-200">{editingId ? 'บันทึกแก้ไข' : 'เพิ่มพนักงาน'}</button>
+               </form>
+            </div>
+         </div>
+       )}
     </div>
   );
 }

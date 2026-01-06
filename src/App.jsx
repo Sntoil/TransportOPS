@@ -1,4 +1,3 @@
-// ... (Imports เดิม) ...
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from './firebase';
@@ -17,7 +16,6 @@ import { Toaster, toast } from 'react-hot-toast';
 import { Menu } from 'lucide-react';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// ... (Code AI เดิม) ...
 let genAI = null;
 try { if (import.meta.env.VITE_FIREBASE_API_KEY) genAI = new GoogleGenerativeAI(import.meta.env.VITE_FIREBASE_API_KEY); } catch (e) {}
 
@@ -28,19 +26,18 @@ export default function TransportApp() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [aiLoading, setAiLoading] = useState(false);
 
-  // ✅ FIX 3: รับค่ามาแล้วกันตายด้วย || {} ทันที
-  const rawData = useTransportData(user || appUser) || {};
+  // ดึงข้อมูล (ถ้า Hook ยังไม่โหลด จะได้ undefined -> เรากันด้วย || {})
+  const data = useTransportData(user || appUser) || {};
   
-  // ✅ FIX 4: แตกตัวแปรออกมา ถ้าไม่มีให้เป็น undefined ไปก่อน เดี๋ยวไปแก้ตอนส่ง props
+  // แตกตัวแปร (Destructuring)
   const {
-    members, tasks, logs, actionLogs, rules, manualScores, roles,
+    members = [], tasks = [], logs = [], actionLogs = [], rules = [], manualScores = [], roles = {},
     handleTaskToggle, handleUpdateTaskStatus, handleAddTask, handleEditTask, handleDeleteTask,
     handleAddMember, handleEditMember, handleDeleteMember,
     handleAddLog, handleResolveLog, handleDeleteLog,
     handleSaveRule, handleDeleteRule,
-    handleSaveManualScore, handleDeleteManualScore,
-    handleSaveRole
-  } = rawData;
+    handleSaveManualScore, handleDeleteManualScore, handleSaveRole
+  } = data;
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
@@ -52,16 +49,23 @@ export default function TransportApp() {
   const withUser = (fn) => (...args) => { if (fn) return fn(...args, user || appUser); };
   const currentUserRole = roles?.[(user || appUser)?.email] || 'staff'; 
 
-  // ... (AI Function เดิม) ...
-  const askAiSolution = async (logItem) => { /* ...code เดิม... */ };
+  const askAiSolution = async (logItem) => {
+      if (!genAI) return alert("API Key Missing");
+      setAiLoading(true);
+      try {
+        const model = genAI.getGenerativeModel({ model: "gemini-pro"});
+        const result = await model.generateContent(`แนะนำวิธีแก้ปัญหา: ${logItem.topic} ${logItem.detail}`);
+        alert(`AI Suggestion:\n${result.response.text()}`);
+      } catch (e) { alert("AI Error"); } finally { setAiLoading(false); }
+  };
 
   if (!user && !appUser) return <LoginView onLogin={(u) => setAppUser(u)} />;
 
   return (
-    <div className="flex h-screen bg-gray-100 font-sans text-gray-900 overflow-hidden">
+    <div className="flex h-screen bg-gray-50 font-sans text-gray-900 overflow-hidden">
       <Toaster position="top-right" />
       
-      {/* Sidebar */}
+      {/* Sidebar Mobile Overlay */}
       <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white transform transition-transform duration-300 lg:static lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
          <Sidebar activeTab={activeTab} setActiveTab={(t) => { setActiveTab(t); setIsSidebarOpen(false); }} user={user || appUser} role={currentUserRole} onLogout={handleLogout} />
       </div>
@@ -73,8 +77,8 @@ export default function TransportApp() {
         </div>
 
         <div className="flex-1 overflow-auto p-4 lg:p-8">
-           <div className="max-w-7xl mx-auto">
-              {/* ✅ FIX 5: ใส่ || [] ทุกบรรทัด ห้ามพลาดแม้แต่ตัวเดียว! */}
+           <div className="max-w-7xl mx-auto space-y-6">
+              {/* ✅ ส่ง Props แบบใส่เกราะ || [] ทุกบรรทัด */}
               {activeTab === 'dashboard' && <DashboardView members={members || []} tasks={tasks || []} logs={logs || []} />}
               
               {activeTab === 'team' && <TeamView members={members || []} onAdd={withUser(handleAddMember)} onEdit={withUser(handleEditMember)} onDelete={withUser(handleDeleteMember)} currentUserRole={currentUserRole} />}

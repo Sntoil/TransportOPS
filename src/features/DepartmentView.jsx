@@ -6,50 +6,49 @@ export default function DepartmentView({ members, tasks, onTaskToggle }) {
   const safeMembers = members || [];
   const safeTasks = tasks || [];
 
-  // แยกข้อมูล
-  const inboundMembers = safeMembers.filter(m => m?.dept === 'Inbound');
-  const inboundTasks = safeTasks.filter(t => t?.area === 'Inbound');
-  const outboundMembers = safeMembers.filter(m => m?.dept === 'Outbound');
-  const outboundTasks = safeTasks.filter(t => t?.area === 'Outbound');
-  const internalMembers = safeMembers.filter(m => m?.dept === 'Internal');
-  const internalTasks = safeTasks.filter(t => t?.area === 'Internal');
+  const filterData = (deptName) => ({
+      team: safeMembers.filter(m => m?.dept === deptName),
+      work: safeTasks.filter(t => t?.area === deptName)
+  });
 
-  const renderSection = (title, team, work, color, icon) => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full">
-      <div className={`p-4 border-b border-gray-100 ${color} bg-opacity-10 flex justify-between items-center`}>
-        <div className="flex items-center gap-2">{icon}<h3 className="font-bold text-lg text-gray-800">{title}</h3></div>
-        <span className="text-xs font-bold text-gray-500 bg-white px-2 py-1 rounded-full shadow-sm">{team.length} คน | {work.length} งาน</span>
-      </div>
-      <div className="p-4 flex-1 space-y-4">
-         <div>
-            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">ทีมงาน</h4>
-            <div className="flex flex-wrap gap-2">
-                {team.length > 0 ? team.map((m, i) => (<span key={m?.id||i} className="text-xs px-2.5 py-1 bg-gray-50 text-gray-700 rounded border">{m?.name}</span>)) : <p className="text-xs text-gray-300">- ว่าง -</p>}
+  const Section = ({ title, icon, color, data }) => (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col h-full overflow-hidden">
+        <div className={`p-4 border-b border-gray-100 bg-opacity-10 ${color} flex justify-between items-center`}>
+            <div className="flex items-center gap-2 text-slate-800 font-bold text-lg">{icon} {title}</div>
+            <div className="text-xs font-bold bg-white px-2 py-1 rounded-full text-slate-500 shadow-sm">{data.team.length} คน | {data.work.length} งาน</div>
+        </div>
+        <div className="p-5 flex-1 space-y-6">
+            <div>
+                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Members</h4>
+                <div className="flex flex-wrap gap-2">
+                    {data.team.length > 0 ? data.team.map((m,i) => (
+                        <span key={m.id||i} className="px-2.5 py-1 text-xs font-medium bg-slate-50 text-slate-600 rounded-md border border-slate-100">{m.name}</span>
+                    )) : <span className="text-xs text-gray-300 italic">- ไม่มีสมาชิก -</span>}
+                </div>
             </div>
-         </div>
-         <div>
-            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">งาน</h4>
-            <div className="space-y-2">
-                {work.length > 0 ? work.map((t, i) => (
-                    <div key={t?.id||i} className="flex items-start gap-3 p-2.5 bg-gray-50 rounded-lg border">
-                        <input type="checkbox" checked={t?.completed||false} onChange={() => onTaskToggle && onTaskToggle(t.id, t?.completed)} className="mt-0.5 rounded text-blue-600 cursor-pointer"/>
-                        <p className={`text-sm ${t?.completed ? 'line-through text-gray-400' : 'text-gray-700'}`}>{t?.name}</p>
-                    </div>
-                )) : <p className="text-xs text-center text-gray-300">- ไม่มีงาน -</p>}
+            <div>
+                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Tasks</h4>
+                <div className="space-y-2">
+                    {data.work.length > 0 ? data.work.map((t,i) => (
+                        <div key={t.id||i} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100 hover:border-blue-200 transition-colors">
+                            <input type="checkbox" checked={t.completed} onChange={() => onTaskToggle(t.id, t.completed)} className="mt-0.5 rounded text-blue-600 cursor-pointer"/>
+                            <span className={`text-sm ${t.completed ? 'line-through text-gray-400' : 'text-slate-700'}`}>{t.name}</span>
+                        </div>
+                    )) : <div className="text-center text-xs text-gray-300 py-4 italic">- ไม่มีงานค้าง -</div>}
+                </div>
             </div>
-         </div>
-      </div>
+        </div>
     </div>
   );
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><Users className="text-blue-600"/> ภาพรวมแผนก</h2></div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-        {renderSection('Inbound', inboundMembers, inboundTasks, 'bg-blue-500', <Package size={20} className="text-blue-600"/>)}
-        {renderSection('Outbound', outboundMembers, outboundTasks, 'bg-green-500', <ArrowRightLeft size={20} className="text-green-600"/>)}
-        {renderSection('Internal', internalMembers, internalTasks, 'bg-purple-500', <Warehouse size={20} className="text-purple-600"/>)}
-      </div>
+       <div className="flex items-center gap-2"><h2 className="text-2xl font-bold text-slate-800">Department Overview</h2></div>
+       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+           <Section title="Inbound" icon={<Package className="text-blue-600"/>} color="bg-blue-500" data={filterData('Inbound')} />
+           <Section title="Outbound" icon={<ArrowRightLeft className="text-green-600"/>} color="bg-green-500" data={filterData('Outbound')} />
+           <Section title="Internal" icon={<Warehouse className="text-purple-600"/>} color="bg-purple-500" data={filterData('Internal')} />
+       </div>
     </div>
   );
 }
