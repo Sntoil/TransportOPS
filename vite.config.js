@@ -5,9 +5,10 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   build: {
-    // ปิดการสร้าง Source Map (ตัวการที่ชอบใช้ eval)
-    sourcemap: false, 
-    // เพิ่มขนาด Chunk เพื่อป้องกัน Error ไฟล์ใหญ่
+    // ✅ สำคัญ: ปิด sourcemap เพื่อไม่ให้เกิดโค้ด eval()
+    sourcemap: false,
+    
+    // ตั้งค่า Chunk เพื่อลดขนาดไฟล์ (แก้ Error ไฟล์ใหญ่เกิน)
     chunkSizeWarningLimit: 1600,
     rollupOptions: {
         output: {
