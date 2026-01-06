@@ -47,8 +47,8 @@ export default function TransportApp() {
 
   // 🔑 FIX IMPORTANT: ปลดล็อคให้ทุกคนเป็น DGM (Manager) ชั่วคราว เพื่อให้เห็นปุ่มกด
   // ถ้าอยากกลับไปใช้ระบบสิทธิ์เดิม ให้ลบ || 'dgm' ออกทีหลัง
-  const myAdminEmail = "admin@tsops.com"; // 👈 แก้ตรงนี้เป็นอีเมลที่คุณใช้ล็อกอินจริง!
-  const currentUserEmail = (user || appUser)?.email;
+  const myAdminEmail = (import.meta.env.VITE_ADMIN_EMAIL || "admin@tsops.com").toLowerCase();
+  const currentUserEmail = (user || appUser)?.email?.toLowerCase();
 const currentUserRole = (currentUserEmail === myAdminEmail) 
     ? 'dgm'  // ถ้าเป็นอีเมลคุณ -> ให้เป็น DGM (Admin)
     : (roles?.[currentUserEmail] || 'staff'); // ถ้าคนอื่น -> ให้ดึงสิทธิ์จาก Database (ถ้าไม่มีให้เป็น Staff) 
